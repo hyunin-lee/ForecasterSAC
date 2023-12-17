@@ -15,6 +15,7 @@ import inspect
 
 
 parser = argparse.ArgumentParser(description='PyTorch Soft Actor-Critic Args')
+parser.add_argument('--reward_change',type=bool,default=False, help='run on CUDA (default: False)')
 parser.add_argument('--env-name', default='HalfCheetah-v2',
                     help='Mujoco Gym environment (default: HalfCheetah-v2)')
 parser.add_argument('--policy', default="Gaussian",
@@ -48,9 +49,8 @@ parser.add_argument('--target_update_interval', type=int, default=1, metavar='N'
                     help='Value target update per no. of updates per step (default: 1)')
 parser.add_argument('--replay_size', type=int, default=1000000, metavar='N',
                     help='size of replay buffer (default: 10000000)')
-parser.add_argument('--cuda',  type=bool, default=True,
-                    help='run on CUDA (default: False)')
-parser.add_argument('--rchange',type=bool,default=False)
+parser.add_argument('--cuda',  type=bool, default=True, help='run on CUDA (default: False)')
+
 parser.add_argument('--futureQ',  type=bool, default=True,
                     help='runfutureQ')
 args = parser.parse_args()
@@ -69,7 +69,7 @@ agent = SAC(env.observation_space.shape[0], env.action_space, args)
 
 #Tesnorboard
 writer = SummaryWriter('runs/{}_SAC_{}_tau_{}_lr_{}_alp_{}_fQ_{}_NSr_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
-                                                             args.tau,args.lr, args.alpha ,args.futureQ,args.rchange))
+                                                             args.tau,args.lr, args.alpha ,args.futureQ,args.reward_change))
 
 # Memory
 memory = ReplayMemory(args.replay_size, args.seed)
@@ -77,7 +77,7 @@ memory = ReplayMemory(args.replay_size, args.seed)
 # Training Loop
 total_numsteps = 0
 updates = 0
-
+print(args.reward_change)
 for i_episode in itertools.count(1):
     episode_reward = 0
     episode_steps = 0
@@ -90,12 +90,10 @@ for i_episode in itertools.count(1):
         else:
             action = agent.select_action(state)  # Sample action from policy
 
-        if args.rchange :
+        next_state, reward, done, dic = env.step(action)  # Step
+        if args.reward_change :
             v_d = utils.NSgenerator(i_episode)
-            next_state, reward, done, _ = env.NSstep(action,v_d)  # Step
-        else :
-            next_state, reward, done, _ = env.step(action) # Step
-
+            reward = - np.abs(dic["reward_run"]-v_d) + dic["reward_ctrl"]
         episode_steps += 1
         total_numsteps += 1
         episode_reward += reward
@@ -141,12 +139,10 @@ for i_episode in itertools.count(1):
             done = False
             while not done:
                 action = agent.select_action(state, evaluate=True)
-
-                if args.rchange:
+                next_state, reward, done, dic = env.step(action)  # Step
+                if args.reward_change:
                     v_d = utils.NSgenerator(i_episode)
-                    next_state, reward, done, _ = env.NSstep(action, v_d)  # Step
-                else:
-                    next_state, reward, done, _ = env.step(action)  # Step
+                    reward = - np.abs(dic["reward_run"] - v_d) + dic["reward_ctrl"]
 
                 episode_reward += reward
 

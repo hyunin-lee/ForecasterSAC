@@ -4,7 +4,7 @@ import numpy as np
 
 
 def NSgenerator(ep):
-    v_d = 1.5 + 1.5 * np.sin(0.1 * ep),
+    v_d = 1.0 + 0.2 * np.sin(0.1 * ep)
     return v_d
 
 def create_log_gaussian(mean, log_std, t):
