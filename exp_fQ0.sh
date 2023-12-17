@@ -36,7 +36,7 @@
 # sudo sh -c 'echo 1 >/proc/sys/vm/drop_caches' && sudo sh -c 'echo 2 >/proc/sys/vm/drop_caches' && sudo sh -c 'echo 3 >/proc/sys/vm/drop_caches'
 # python main.py --alpha 0.15 --futureQ False;
 
-for futureQ in True False;do
+for futureQ in 0; do
   for lr in 0.0003 0.0005 0.0007 0.0009;do
     for tau in 0.003 0.005 0.007 0.009;do
       for alpha in 0.05 0.10 0.15 0.2;do

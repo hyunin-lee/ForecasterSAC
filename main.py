@@ -15,7 +15,7 @@ import inspect
 
 
 parser = argparse.ArgumentParser(description='PyTorch Soft Actor-Critic Args')
-parser.add_argument('--reward_change',type=bool,default=False, help='run on CUDA (default: False)')
+parser.add_argument('--reward_change',type=int, default=0 ,help='run on CUDA (default: False)')
 parser.add_argument('--env-name', default='HalfCheetah-v2',
                     help='Mujoco Gym environment (default: HalfCheetah-v2)')
 parser.add_argument('--policy', default="Gaussian",
@@ -50,9 +50,7 @@ parser.add_argument('--target_update_interval', type=int, default=1, metavar='N'
 parser.add_argument('--replay_size', type=int, default=1000000, metavar='N',
                     help='size of replay buffer (default: 10000000)')
 parser.add_argument('--cuda',  type=bool, default=True, help='run on CUDA (default: False)')
-
-parser.add_argument('--futureQ',  type=bool, default=True,
-                    help='runfutureQ')
+parser.add_argument('--futureQ',  type=int, help='runfutureQ')
 args = parser.parse_args()
 
 # Environment
