@@ -1,12 +1,18 @@
 import argparse
 import datetime
 import gym
+import os
 import numpy as np
 import itertools
 import torch
+
+import utils
 from sac import SAC
 from torch.utils.tensorboard import SummaryWriter
 from replay_memory import ReplayMemory
+import inspect
+
+
 
 parser = argparse.ArgumentParser(description='PyTorch Soft Actor-Critic Args')
 parser.add_argument('--env-name', default='HalfCheetah-v2',
@@ -44,7 +50,7 @@ parser.add_argument('--replay_size', type=int, default=1000000, metavar='N',
                     help='size of replay buffer (default: 10000000)')
 parser.add_argument('--cuda',  type=bool, default=True,
                     help='run on CUDA (default: False)')
-
+parser.add_argument('--rchange',type=bool,default=False)
 parser.add_argument('--futureQ',  type=bool, default=True,
                     help='runfutureQ')
 args = parser.parse_args()
@@ -62,8 +68,8 @@ np.random.seed(args.seed)
 agent = SAC(env.observation_space.shape[0], env.action_space, args)
 
 #Tesnorboard
-writer = SummaryWriter('runs/{}_SAC_{}_{}_{}_{}_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
-                                                             args.tau,args.lr, args.alpha ,args.futureQ))
+writer = SummaryWriter('runs/{}_SAC_{}_tau_{}_lr_{}_alp_{}_fQ_{}_NSr_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
+                                                             args.tau,args.lr, args.alpha ,args.futureQ,args.rchange))
 
 # Memory
 memory = ReplayMemory(args.replay_size, args.seed)
@@ -84,7 +90,12 @@ for i_episode in itertools.count(1):
         else:
             action = agent.select_action(state)  # Sample action from policy
 
-        next_state, reward, done, _ = env.step(action) # Step
+        if args.rchange :
+            v_d = utils.NSgenerator(i_episode)
+            next_state, reward, done, _ = env.NSstep(action,v_d)  # Step
+        else :
+            next_state, reward, done, _ = env.step(action) # Step
+
         episode_steps += 1
         total_numsteps += 1
         episode_reward += reward
@@ -131,7 +142,12 @@ for i_episode in itertools.count(1):
             while not done:
                 action = agent.select_action(state, evaluate=True)
 
-                next_state, reward, done, _ = env.step(action)
+                if args.rchange:
+                    v_d = utils.NSgenerator(i_episode)
+                    next_state, reward, done, _ = env.NSstep(action, v_d)  # Step
+                else:
+                    next_state, reward, done, _ = env.step(action)  # Step
+
                 episode_reward += reward
 
 

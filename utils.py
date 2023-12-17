@@ -1,5 +1,11 @@
 import math
 import torch
+import numpy as np
+
+
+def NSgenerator(ep):
+    v_d = 1.5 + 1.5 * np.sin(0.1 * ep),
+    return v_d
 
 def create_log_gaussian(mean, log_std, t):
     quadratic = -((0.5 * (t - mean) / (log_std.exp())).pow(2))
