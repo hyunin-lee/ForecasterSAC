@@ -15,7 +15,7 @@ import inspect
 
 
 parser = argparse.ArgumentParser(description='PyTorch Soft Actor-Critic Args')
-parser.add_argument('--reward_change',type=int, default=0 ,help='run on CUDA (default: False)')
+parser.add_argument('--reward_change',type=int, default=1 ,help='run on CUDA (default: False)')
 parser.add_argument('--env-name', default='HalfCheetah-v2',
                     help='Mujoco Gym environment (default: HalfCheetah-v2)')
 parser.add_argument('--policy', default="Gaussian",
@@ -41,8 +41,9 @@ parser.add_argument('--num_steps', type=int, default=1000001, metavar='N',
                     help='maximum number of steps (default: 1000000)')
 parser.add_argument('--hidden_size', type=int, default=256, metavar='N',
                     help='hidden size (default: 256)')
-parser.add_argument('--updates_per_step', type=int, default=1, metavar='N',
+parser.add_argument('--qv_update_freq', type=int, default=1, metavar='N',
                     help='model updates per simulator step (default: 1)')
+parser.add_argument('--pi_update_freq',  type=int, default=1, help='policyupdatefreq')
 parser.add_argument('--start_steps', type=int, default=10000, metavar='N',
                     help='Steps sampling random actions (default: 10000)')
 parser.add_argument('--target_update_interval', type=int, default=1, metavar='N',
@@ -50,7 +51,10 @@ parser.add_argument('--target_update_interval', type=int, default=1, metavar='N'
 parser.add_argument('--replay_size', type=int, default=1000000, metavar='N',
                     help='size of replay buffer (default: 10000000)')
 parser.add_argument('--cuda',  type=bool, default=True, help='run on CUDA (default: False)')
-parser.add_argument('--futureQ',  type=int, help='runfutureQ')
+parser.add_argument('--futurelength',type=int, default=5, help='future forecasting length')
+parser.add_argument('--pastlength',type=int, default=10, help='past referece length')
+parser.add_argument('--futureQ',  type=int, default=1, help='runfutureQ')
+
 args = parser.parse_args()
 
 # Environment
@@ -66,8 +70,8 @@ np.random.seed(args.seed)
 agent = SAC(env.observation_space.shape[0], env.action_space, args)
 
 #Tesnorboard
-writer = SummaryWriter('runs/{}_SAC_{}_tau_{}_lr_{}_alp_{}_fQ_{}_NSr_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
-                                                             args.tau,args.lr, args.alpha ,args.futureQ,args.reward_change))
+writer = SummaryWriter('runs/{}_SAC_{}_tau_{}_lr_{}_alp_{}_PIfreq_{}_fQ_{}_NSr_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
+                                                             args.tau,args.lr, args.alpha, args.pi_update_freq, args.futureQ, args.reward_change))
 
 # Memory
 memory = ReplayMemory(args.replay_size, args.seed)
@@ -104,17 +108,16 @@ for i_episode in itertools.count(1):
 
         state = next_state
     if args.futureQ:
-        ## update Q network
         agent.critic_history.append(agent.critic)
-        if len(agent.critic_history) > 7 :
+        if len(agent.critic_history) > args.pastlength :
             agent.critic_history.pop(0)
 
     # Number of updates per step in environment
     if len(memory) > args.batch_size:
-        for i in range(args.updates_per_step):
+        for i in range(args.qv_update_freq):
             # Update parameters of all the networks
             critic_1_loss, critic_2_loss, policy_loss, ent_loss, alpha = agent.update_parameters(memory, args.batch_size,
-                                                                                                 updates)
+                                                                                                 updates,i_episode,args)
             writer.add_scalar('loss/critic_1', critic_1_loss, updates)
             writer.add_scalar('loss/critic_2', critic_2_loss, updates)
             writer.add_scalar('loss/policy', policy_loss, updates)

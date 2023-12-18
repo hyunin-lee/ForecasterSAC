@@ -2,6 +2,8 @@ import os
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
+
+import utils
 from utils import soft_update, hard_update
 from model import GaussianPolicy, QNetwork, DeterministicPolicy
 
@@ -23,6 +25,9 @@ class SAC(object):
         self.critic = QNetwork(num_inputs, action_space.shape[0], args.hidden_size).to(device=self.device)
         if self.futureQ:
             self.critic_history = []
+            self.fw_x = utils.compute_weight_X(args.pastlength).to(device=self.device)
+            print(self.fw_x.shape)
+
         self.critic_optim = Adam(self.critic.parameters(), lr=args.lr)
 
         self.critic_target = QNetwork(num_inputs, action_space.shape[0], args.hidden_size).to(self.device)
@@ -52,7 +57,7 @@ class SAC(object):
             _, _, action = self.policy.sample(state)
         return action.detach().cpu().numpy()[0]
 
-    def update_parameters(self, memory, batch_size, updates):
+    def update_parameters(self, memory, batch_size, updates,i_episode,args):
         # Sample a batch from memory
         state_batch, action_batch, reward_batch, next_state_batch, mask_batch = memory.sample(batch_size=batch_size)
 
@@ -76,23 +81,31 @@ class SAC(object):
         qf_loss.backward()
         self.critic_optim.step()
 
-        pi, log_pi, _ = self.policy.sample(state_batch)
-        if self.futureQ :
-            qf1_pi, qf2_pi = 0,0
-            for past_critic in self.critic_history :
-                qf1_pi_past, qf2_pi_past = past_critic(state_batch,pi)
-                qf1_pi += qf1_pi_past
-                qf2_pi += qf2_pi_past
-            qf1_pi, qf2_pi = 1/len(self.critic_history) * qf1_pi, 1/len(self.critic_history) * qf2_pi
-        else :
-            qf1_pi, qf2_pi = self.critic(state_batch, pi)
+        for i in range(args.pi_update_freq):
+            pi, log_pi, _ = self.policy.sample(state_batch)
+            if self.futureQ and i_episode > args.pastlength:
+                for idx, past_critic in enumerate(self.critic_history) :
+                    qf1_pi_past, qf2_pi_past = past_critic(state_batch,pi)
+                    if idx == 0 :
+                        qf1_pi_concat, qf2_pi_concat = qf1_pi_past, qf2_pi_past
+                    else :
+                        qf1_pi_concat,qf2_pi_concat = torch.cat((qf1_pi_concat,qf1_pi_past),1),torch.cat((qf2_pi_concat,qf2_pi_past),1)
+                w1 = torch.matmul(self.fw_x, torch.transpose(qf1_pi_concat, 0, 1))
+                w2 = torch.matmul(self.fw_x, torch.transpose(qf2_pi_concat, 0, 1))
+                qf1_pi = torch.matmul(torch.FloatTensor([[args.pastlength+args.futurelength,1]]).to(device=self.device),w1)
+                qf1_pi = torch.transpose(qf1_pi,0,1)
+                qf2_pi = torch.matmul(torch.FloatTensor([[args.pastlength+args.futurelength,1]]).to(device=self.device),w2)
+                qf2_pi = torch.transpose(qf2_pi, 0, 1)
+            else :
+                qf1_pi, qf2_pi = self.critic(state_batch, pi)
 
-        min_qf_pi = torch.min(qf1_pi, qf2_pi)
+            min_qf_pi = torch.min(qf1_pi, qf2_pi)
 
-        policy_loss = ((self.alpha * log_pi) - min_qf_pi).mean() # Jπ = 𝔼st∼D,εt∼N[α * logπ(f(εt;st)|st) − Q(st,f(εt;st))]
-        self.policy_optim.zero_grad()
-        policy_loss.backward()
-        self.policy_optim.step()
+            policy_loss = ((self.alpha * log_pi) - min_qf_pi).mean() # Jπ = 𝔼st∼D,εt∼N[α * logπ(f(εt;st)|st) − Q(st,f(εt;st))]
+            self.policy_optim.zero_grad()
+            policy_loss.backward()
+            self.policy_optim.step()
+        #######
 
         if self.automatic_entropy_tuning:
             alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()

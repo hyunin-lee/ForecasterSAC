@@ -4,8 +4,18 @@ import numpy as np
 
 
 def NSgenerator(ep):
-    v_d = 1.0 + 0.2 * np.sin(0.1 * ep)
+    v_d = 1.0 + 0.2 * np.sin(0.001 * ep)
     return v_d
+
+def compute_weight_X(past_length) :
+    for i in range(past_length):
+        if i == 0 :
+            X = np.array([[i+1,1]])
+        else :
+            X = np.concatenate((X,np.array([[i+1,1]])),0)
+    y = np.matmul(np.transpose(X), X)
+    y_inv = np.linalg.inv(y)
+    return torch.FloatTensor(np.matmul(y_inv,np.transpose(X)))
 
 def create_log_gaussian(mean, log_std, t):
     quadratic = -((0.5 * (t - mean) / (log_std.exp())).pow(2))
