@@ -51,7 +51,8 @@ parser.add_argument('--target_update_interval', type=int, default=1, metavar='N'
 parser.add_argument('--replay_size', type=int, default=1000000, metavar='N',
                     help='size of replay buffer (default: 10000000)')
 parser.add_argument('--cuda',  type=bool, default=True, help='run on CUDA (default: False)')
-parser.add_argument('--futurelength',type=int, default=5, help='future forecasting length')
+parser.add_argument('--futurelength',type=int, default=10, help='future forecasting length')
+parser.add_argument('--updateratio',type=float, help='future forecasting length')
 parser.add_argument('--pastlength',type=int, default=10, help='past referece length')
 parser.add_argument('--futureQ',  type=int, default=1, help='runfutureQ')
 
@@ -70,8 +71,8 @@ np.random.seed(args.seed)
 agent = SAC(env.observation_space.shape[0], env.action_space, args)
 
 #Tesnorboard
-writer = SummaryWriter('runs/{}_SAC_{}_tau_{}_lr_{}_alp_{}_PIfreq_{}_fQ_{}_NSr_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
-                                                             args.tau,args.lr, args.alpha, args.pi_update_freq, args.futureQ, args.reward_change))
+writer = SummaryWriter('runs/{}_SAC_{}_tau_{}_lr_{}_alp_{}_PIfreq_{}_UR_{}_FL_{}_fQ_{}_NSr_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
+                                                             args.tau,args.lr, args.alpha, args.pi_update_freq, args.updateratio, args.futurelength, args.futureQ, args.reward_change))
 
 # Memory
 memory = ReplayMemory(args.replay_size, args.seed)
@@ -108,9 +109,12 @@ for i_episode in itertools.count(1):
 
         state = next_state
     if args.futureQ:
-        agent.critic_history.append(agent.critic)
-        if len(agent.critic_history) > args.pastlength :
-            agent.critic_history.pop(0)
+        agent.critic_stack.append(agent.critic)
+        if len(agent.critic_stack) > args.pastlength :
+            agent.critic_stack.pop(0)
+        if (i_episode-1) % args.futurelength == 0 :
+            print("update Q history")
+            agent.critic_history = agent.critic_stack
 
     # Number of updates per step in environment
     if len(memory) > args.batch_size:

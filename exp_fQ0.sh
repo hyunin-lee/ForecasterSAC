@@ -37,17 +37,19 @@
 # python main.py --alpha 0.15 --futureQ False;
 
 for futureQ in 0; do
-  for lr in 0.0003 0.0005 0.0007;do
+  for lr in 0.0003 0.0007;do
     for tau in 0.003 ;do
       for alpha in 0.05 ;do
-          for pi_update_freq in 1 3 5 7 9 ; do
-            echo $lr
-            echo $tau
-            echo $alpha
-            echo $futureQ
-            echo $pi_update_freq
-            # echo Dlgusdls96$ | sudo -S sh -c 'echo 1 >/proc/sys/vm/drop_caches' && sudo -S sh -c 'echo 2 >/proc/sys/vm/drop_caches' && sudo -S sh -c 'echo 3 >/proc/sys/vm/drop_caches';
-            python main.py --lr $lr --tau $tau --alpha $alpha --futureQ $futureQ --pi_update_freq $pi_update_freq;
+          for pi_update_freq in 5 10 20 ; do
+            for updateratio in 0.2 0.4 0.6 0.8 ; do
+              echo $lr
+              echo $tau
+              echo $alpha
+              echo $futureQ
+              echo $pi_update_freq
+              # echo Dlgusdls96$ | sudo -S sh -c 'echo 1 >/proc/sys/vm/drop_caches' && sudo -S sh -c 'echo 2 >/proc/sys/vm/drop_caches' && sudo -S sh -c 'echo 3 >/proc/sys/vm/drop_caches';
+              python main.py --lr $lr --tau $tau --alpha $alpha --futureQ $futureQ --pi_update_freq $pi_update_freq --updateratio $updateratio ;
+			      done
 			    done
 			done
 		done

@@ -24,7 +24,8 @@ class SAC(object):
 
         self.critic = QNetwork(num_inputs, action_space.shape[0], args.hidden_size).to(device=self.device)
         if self.futureQ:
-            self.critic_history = []
+            self.critic_stack = []
+            self.critic_history = None
             self.fw_x = utils.compute_weight_X(args.pastlength).to(device=self.device)
             print(self.fw_x.shape)
 
@@ -80,31 +81,33 @@ class SAC(object):
         self.critic_optim.zero_grad()
         qf_loss.backward()
         self.critic_optim.step()
+        if (i_episode-1) % args.futurelength < args.futurelength * args.updateratio :
+            print("update policy")
+            for i in range(args.pi_update_freq):
+                pi, log_pi, _ = self.policy.sample(state_batch)
+                if self.futureQ and i_episode > args.pastlength:
+                    for idx, past_critic in enumerate(self.critic_history) :
+                        qf1_pi_past, qf2_pi_past = past_critic(state_batch,pi)
+                        if idx == 0 :
+                            qf1_pi_concat, qf2_pi_concat = qf1_pi_past, qf2_pi_past
+                        else :
+                            qf1_pi_concat,qf2_pi_concat = torch.cat((qf1_pi_concat,qf1_pi_past),1),torch.cat((qf2_pi_concat,qf2_pi_past),1)
+                    w1 = torch.matmul(self.fw_x, torch.transpose(qf1_pi_concat, 0, 1))
+                    w2 = torch.matmul(self.fw_x, torch.transpose(qf2_pi_concat, 0, 1))
+                    qf1_pi = torch.matmul(torch.FloatTensor([[args.pastlength+args.futurelength,1]]).to(device=self.device),w1)
+                    qf1_pi = torch.transpose(qf1_pi,0,1)
+                    qf2_pi = torch.matmul(torch.FloatTensor([[args.pastlength+args.futurelength,1]]).to(device=self.device),w2)
+                    qf2_pi = torch.transpose(qf2_pi, 0, 1)
+                else :
+                    qf1_pi, qf2_pi = self.critic(state_batch, pi)
 
-        for i in range(args.pi_update_freq):
-            pi, log_pi, _ = self.policy.sample(state_batch)
-            if self.futureQ and i_episode > args.pastlength:
-                for idx, past_critic in enumerate(self.critic_history) :
-                    qf1_pi_past, qf2_pi_past = past_critic(state_batch,pi)
-                    if idx == 0 :
-                        qf1_pi_concat, qf2_pi_concat = qf1_pi_past, qf2_pi_past
-                    else :
-                        qf1_pi_concat,qf2_pi_concat = torch.cat((qf1_pi_concat,qf1_pi_past),1),torch.cat((qf2_pi_concat,qf2_pi_past),1)
-                w1 = torch.matmul(self.fw_x, torch.transpose(qf1_pi_concat, 0, 1))
-                w2 = torch.matmul(self.fw_x, torch.transpose(qf2_pi_concat, 0, 1))
-                qf1_pi = torch.matmul(torch.FloatTensor([[args.pastlength+args.futurelength,1]]).to(device=self.device),w1)
-                qf1_pi = torch.transpose(qf1_pi,0,1)
-                qf2_pi = torch.matmul(torch.FloatTensor([[args.pastlength+args.futurelength,1]]).to(device=self.device),w2)
-                qf2_pi = torch.transpose(qf2_pi, 0, 1)
-            else :
-                qf1_pi, qf2_pi = self.critic(state_batch, pi)
+                min_qf_pi = torch.min(qf1_pi, qf2_pi)
 
-            min_qf_pi = torch.min(qf1_pi, qf2_pi)
-
-            policy_loss = ((self.alpha * log_pi) - min_qf_pi).mean() # Jπ = 𝔼st∼D,εt∼N[α * logπ(f(εt;st)|st) − Q(st,f(εt;st))]
-            self.policy_optim.zero_grad()
-            policy_loss.backward()
-            self.policy_optim.step()
+                policy_loss = ((self.alpha * log_pi) - min_qf_pi).mean() # Jπ = 𝔼st∼D,εt∼N[α * logπ(f(εt;st)|st) − Q(st,f(εt;st))]
+                self.policy_loss = policy_loss
+                self.policy_optim.zero_grad()
+                policy_loss.backward()
+                self.policy_optim.step()
         #######
 
         if self.automatic_entropy_tuning:
@@ -124,7 +127,7 @@ class SAC(object):
         if updates % self.target_update_interval == 0:
             soft_update(self.critic_target, self.critic, self.tau)
 
-        return qf1_loss.item(), qf2_loss.item(), policy_loss.item(), alpha_loss.item(), alpha_tlogs.item()
+        return qf1_loss.item(), qf2_loss.item(), self.policy_loss.item(), alpha_loss.item(), alpha_tlogs.item()
 
     # Save model parameters
     def save_checkpoint(self, env_name, suffix="", ckpt_path=None):
