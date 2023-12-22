@@ -71,8 +71,9 @@ np.random.seed(args.seed)
 agent = SAC(env.observation_space.shape[0], env.action_space, args)
 
 #Tesnorboard
-writer = SummaryWriter('runs/{}_SAC_{}_tau_{}_lr_{}_alp_{}_PIfreq_{}_UR_{}_FL_{}_fQ_{}_NSr_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
-                                                             args.tau,args.lr, args.alpha, args.pi_update_freq, args.updateratio, args.futurelength, args.futureQ, args.reward_change))
+folder_savename = 'runs/{}_SAC_{}_tau_{}_lr_{}_alp_{}_PIfreq_{}_UR_{}_FL_{}_fQ_{}_NSr_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
+                                                             args.tau,args.lr, args.alpha, args.pi_update_freq, args.updateratio, args.futurelength, args.futureQ, args.reward_change)
+writer = SummaryWriter(folder_savename)
 
 # Memory
 memory = ReplayMemory(args.replay_size, args.seed)
@@ -80,8 +81,19 @@ memory = ReplayMemory(args.replay_size, args.seed)
 # Training Loop
 total_numsteps = 0
 updates = 0
-print(args.reward_change)
+
+
+critic_1_loss_list = []
+critic_2_loss_list = []
+policy_loss_list = []
+ent_loss_list = []
+
+episode_reward_list = []
+reward_list = []
+
 for i_episode in itertools.count(1):
+    if i_episode > 30 :
+        break
     episode_reward = 0
     episode_steps = 0
     done = False
@@ -127,12 +139,22 @@ for i_episode in itertools.count(1):
             writer.add_scalar('loss/policy', policy_loss, updates)
             writer.add_scalar('loss/entropy_loss', ent_loss, updates)
             writer.add_scalar('entropy_temprature/alpha', alpha, updates)
+            ## save results ##
+            critic_1_loss_list.append(critic_1_loss)
+            critic_2_loss_list.append(critic_2_loss)
+            policy_loss_list.append(policy_loss)
+            ent_loss_list.append(ent_loss)
+            ##################
             updates += 1
 
     if total_numsteps > args.num_steps:
         break
 
     writer.add_scalar('reward/train', episode_reward, i_episode)
+    ## save results ##
+    episode_reward_list.append(i_episode)
+    reward_list.append(episode_reward)
+    ##################
     print("Episode: {}, total numsteps: {}, episode steps: {}, reward: {}".format(i_episode, total_numsteps, episode_steps, round(episode_reward, 2)))
 
     if i_episode % 10 == 0 and args.eval is True:
@@ -162,6 +184,16 @@ for i_episode in itertools.count(1):
         print("----------------------------------------")
         print("Test Episodes: {}, Avg. Reward: {}".format(episodes, round(avg_reward, 2)))
         print("----------------------------------------")
+
+
+## save list ##
+print("save results")
+np.save(folder_savename + '/ep_reward.npy', episode_reward_list)
+np.save(folder_savename + '/reward.npy', reward_list)
+np.save(folder_savename + '/critic1_loss.npy', critic_1_loss_list)
+np.save(folder_savename + '/critic2_loss.npy', critic_2_loss_list)
+np.save(folder_savename + '/policy_loss.npy', policy_loss_list)
+np.save(folder_savename + '/ent_loss.npy', ent_loss_list)
 
 env.close()
 
