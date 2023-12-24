@@ -16,8 +16,8 @@ import inspect
 
 parser = argparse.ArgumentParser(description='PyTorch Soft Actor-Critic Args')
 parser.add_argument('--reward_change',type=int, default=1 ,help='run on CUDA (default: False)')
-parser.add_argument('--env-name', default='HalfCheetah-v2',
-                    help='Mujoco Gym environment (default: HalfCheetah-v2)')
+parser.add_argument('--env-name', default='Swimmer-v2',
+                    help='Mujoco Gym environment (default: HalfCheetah-v2)') #'HalfCheetah-v2'
 parser.add_argument('--policy', default="Gaussian",
                     help='Policy Type: Gaussian | Deterministic (default: Gaussian)')
 parser.add_argument('--eval', type=bool, default=True,
@@ -92,8 +92,6 @@ episode_reward_list = []
 reward_list = []
 
 for i_episode in itertools.count(1):
-    if i_episode > 30 :
-        break
     episode_reward = 0
     episode_steps = 0
     done = False
@@ -106,9 +104,15 @@ for i_episode in itertools.count(1):
             action = agent.select_action(state)  # Sample action from policy
 
         next_state, reward, done, dic = env.step(action)  # Step
+
         if args.reward_change :
             v_d = utils.NSgenerator(i_episode)
-            reward = - np.abs(dic["reward_run"]-v_d) + dic["reward_ctrl"]
+            if args.env_name == "HalfCheetah-v2" :
+                reward = - np.abs(dic["reward_run"]-v_d) + dic["reward_ctrl"]
+            elif args.env_name == "Swimmer-v2" :
+                reward = - np.abs(dic["reward_fwd"] - v_d) + dic["reward_ctrl"]
+            else :
+                raise NotImplementedError
         episode_steps += 1
         total_numsteps += 1
         episode_reward += reward
@@ -169,7 +173,12 @@ for i_episode in itertools.count(1):
                 next_state, reward, done, dic = env.step(action)  # Step
                 if args.reward_change:
                     v_d = utils.NSgenerator(i_episode)
-                    reward = - np.abs(dic["reward_run"] - v_d) + dic["reward_ctrl"]
+                    if args.env_name == "HalfCheetah-v2":
+                        reward = - np.abs(dic["reward_run"] - v_d) + dic["reward_ctrl"]
+                    elif args.env_name == "Swimmer-v2":
+                        reward = - np.abs(dic["reward_fwd"] - v_d) + dic["reward_ctrl"]
+                    else:
+                        raise NotImplementedError
 
                 episode_reward += reward
 
