@@ -16,7 +16,7 @@ import inspect
 
 parser = argparse.ArgumentParser(description='PyTorch Soft Actor-Critic Args')
 parser.add_argument('--reward_change',type=int, default=1 ,help='run on CUDA (default: False)')
-parser.add_argument('--env-name', default='Swimmer-v2',
+parser.add_argument('--env-name', default='HalfCheetah-v2',
                     help='Mujoco Gym environment (default: HalfCheetah-v2)') #'HalfCheetah-v2'
 parser.add_argument('--policy', default="Gaussian",
                     help='Policy Type: Gaussian | Deterministic (default: Gaussian)')
@@ -57,6 +57,9 @@ parser.add_argument('--pastlength',type=int, default=10, help='past referece len
 parser.add_argument('--futureQ',  type=int, default=1, help='runfutureQ')
 
 args = parser.parse_args()
+
+## aset past length same as future length ##
+args.pastlength = args.futurelength
 
 # Environment
 # env = NormalizedActions(gym.make(args.env_name))

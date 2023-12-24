@@ -48,7 +48,7 @@ def compareAUC(dic):
     for key, value in dic.items():
         for folder_name in dic[key]:
             idx = folder_name.split('_')[0]
-            if idx not in ["2","5"]:
+            if idx not in ["2","5","7","8","9","10"]:
                 break
             UR = folder_name.split('_')[14]
             FQ = folder_name.split('_')[18]
@@ -73,14 +73,16 @@ def compareAUC(dic):
     unique_FQ1 = [x + 0.007 for x in unique_FQ1]
 
     plt.figure(figsize=(5, 3))
-    plt.errorbar(unique_FQ0, means_FQ0, yerr=std_devs_FQ0, fmt='o', color='darkorange', ecolor='#FFD580', elinewidth=3, capsize=0)
-    plt.errorbar(unique_FQ1, means_FQ1, yerr=std_devs_FQ1, fmt='o', color='blue', ecolor="#ADD8E6", elinewidth=3,
+    plt.errorbar(unique_FQ0, means_FQ0, yerr=std_devs_FQ0, fmt='o', color='darkorange', ecolor='#FFD580', elinewidth=3, capsize=0,label="reactive")
+    plt.errorbar(unique_FQ1, means_FQ1, yerr=std_devs_FQ1, fmt='o', color='blue', ecolor="#ADD8E6", elinewidth=3,label="futureQ",
                  capsize=0)
-
+    plt.legend(loc='lower right')
     plt.xlabel('Update Frequency')
     plt.ylabel('AUC')
-    plt.title('["1","2","3"]')
+    plt.title('AUC with differnt update frequency')
     plt.tight_layout()
+    plt.grid()
+    plt.savefig("./AUCUF.png")
     plt.show()
 
 compareAUC(dic)
