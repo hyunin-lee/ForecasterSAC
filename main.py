@@ -20,7 +20,7 @@ parser.add_argument('--env-name', default='Swimmer-v2',
                     help='Mujoco Gym environment (default: HalfCheetah-v2)') #'HalfCheetah-v2'
 parser.add_argument('--policy', default="Gaussian",
                     help='Policy Type: Gaussian | Deterministic (default: Gaussian)')
-parser.add_argument('--eval', type=bool, default=True,
+parser.add_argument('--eval', type=bool, default=False,
                     help='Evaluates a policy a policy every 10 episode (default: True)')
 parser.add_argument('--gamma', type=float, default=0.99, metavar='G',
                     help='discount factor for reward (default: 0.99)')
